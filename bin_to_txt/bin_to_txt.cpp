@@ -41,20 +41,24 @@ int main()
 {
 	int ii = 0;
 	int eventIndex = 0;
+	int firstAlignedEvent = 0;
 	//int inputSize = 0;
 	//int arraySize = 0;
 	string input = "";
-	string binfile = "";
-	string txtfile = "";
+	string infile = "";
+	string outfile = "";
 	unsigned int data_array[BUFFER_SIZE] = {};
 	EventData eventsSorted[512] = {};
+
+	fstream inputfileStream;
+	ofstream outputFileStream;
 
 	//sorting variables
 	double aablavgArray[512] = {};
 	double bl1(0);	double bl2(0); double bl3(0); double bl4(0); double bl_avg(0);
-	double si(0); double li(0); double fi(0);
+	/*double si(0); double li(0); double fi(0);
 	double psd(0);
-	double energy(0);
+	double energy(0);*/
 
 	/* I want to read in the filename that the user would like to convert from .bin -> .txt 
 	* Use getline to get user input, check the input for no bad characters, append .bin to the end of it
@@ -66,29 +70,44 @@ int main()
 	{
 		cout << "Enter a binary file (without .bin extension) to convert: \n";		// Get the input file that should be converted
 		getline(cin, input);
-		binfile = input + ".bin";
+		infile = input + ".bin";
+		outfile = input + " proc.txt";
+		cout << "New file will be named: " + outfile + "\n";
 
-		fstream mxbinfile; // (binfile, ios::in | ios::binary);	// Open stream for reading
+		inputfileStream.open(infile, ios::in | ios::binary);
+		outputFileStream.open(outfile, std::ios::app);
 
-		txtfile = input + ".txt";
-		mxbinfile.open(binfile, ios::in | ios::binary);
-		std::ofstream outputFile_Erik;
-		outputFile_Erik.open(txtfile, std::ios::app);
+		//write a header to the output file
+		outputFileStream << "Total Events" << '\t'
+			<< "Event Number" << '\t'
+			<< "TTL Signal" << '\t'
+			<< "Time (s)" << '\t'
+			<< "AA Baseline Int" << '\t'
+			<< "AA Short Int" << '\t'
+			<< "AA Long Int" << '\t'
+			<< "AA Full Int" << '\t'
+			<< "LPF Basline Int" << '\t'
+			<< "LPF Short Int" << '\t'
+			<< "LPF Full Int" << '\t'
+			<< "DFF Baseline Int" << '\t'
+			<< "DFF Short Int" << '\t'
+			<< "World Time (s)" << std::endl;
 
-		while (outputFile_Erik.is_open() && mxbinfile.is_open()) 
+		while (outputFileStream.is_open() && inputfileStream.is_open())
 		{
 			ii = 0;
 			eventIndex = 0;
 			//read in a chunk from the binary file, find the first instance of the identifier
 			
-			mxbinfile.read((char *)&data_array, 49152);	//12288 * 4 = 49152 //buffer size * 4 bytes/int = bytes to read in a full buffer
-			if (!mxbinfile)
+			inputfileStream.read((char *)&data_array, 49152);	//12288 * 4 = 49152 //buffer size * 4 bytes/int = bytes to read in a full buffer
+			if (!inputfileStream)
 				break;
 			while (1)
 			{
 				if (data_array[ii] == 111111)
 				{
-					ii++;
+					ii++;	//there is a second identifier which follows the first one
+					firstAlignedEvent = data_array[ii + 2];
 					break;
 				}
 				else if (ii > BUFFER_SIZE)	//catch if we accidentally have no data
@@ -102,6 +121,12 @@ int main()
 				{
 				case 111111:
 					//process the AA integrator data
+					eventIndex = data_array[ii + 2] - firstAlignedEvent;	//check to see if we have the correct event
+					if (eventIndex < 0)		//if the eventIndex < 0 then we must skip it (otherwise errors) 
+					{
+						ii += 8;	//these events are not inline, skip them
+						break;		//go to the next event
+					}
 					eventsSorted[eventIndex].aaTotalEvents = data_array[ii + 1];
 					eventsSorted[eventIndex].aaEventNumber = data_array[ii + 2];
 					eventsSorted[eventIndex].aaBaselineInt = data_array[ii + 3];
@@ -114,6 +139,12 @@ int main()
 					break;
 				case 121212:
 					//process the LPF data
+					eventIndex = data_array[ii + 1] - firstAlignedEvent;	//check to see if we have the correct event
+					if (eventIndex < 0)		//if the eventIndex < 0 then we must skip it (otherwise errors) 
+					{
+						ii += 8;	//these events are not inline, skip them
+						break;		//go to the next event
+					}
 					eventsSorted[eventIndex].lpfEventNumber = data_array[ii + 1];
 					eventsSorted[eventIndex].lpfTTLSignal = data_array[ii + 2];
 					eventsSorted[eventIndex].lpfBaselineInt = data_array[ii + 3];
@@ -126,6 +157,12 @@ int main()
 					break;
 				case 131313:
 					//process the LPF data
+					eventIndex = data_array[ii + 3] - firstAlignedEvent;
+					if (eventIndex < 0)
+					{
+						ii += 8;
+						break;
+					}
 					eventsSorted[eventIndex].dffTimeSmall = data_array[ii + 1];
 					eventsSorted[eventIndex].dffTimeBig = data_array[ii + 2];
 					eventsSorted[eventIndex].dffEventNumber = data_array[ii + 3];
@@ -142,8 +179,8 @@ int main()
 					break;
 				}
 
-				if (eventIndex > 511)	//if we are at the bottom, reset for the next parts of the struct
-					eventIndex = 0;
+				//if (eventIndex > 511)	//if we are at the bottom, reset for the next parts of the struct
+				//	eventIndex = 0;
 				if (ii > 12280)	//if we are near the top, in the last event, jump out (it's garbage)
 					break;
 			}
@@ -152,7 +189,7 @@ int main()
 			while (eventIndex < 512)	//plots the charts for each event
 			{
 				//reset variables
-				si = 0; li = 0;	fi = 0;	psd = 0; energy = 0;
+				//si = 0; li = 0;	fi = 0;	psd = 0; energy = 0;
 
 				bl4 = bl3; bl3 = bl2; bl2 = bl1;
 				bl1 = eventsSorted[eventIndex].aaBaselineInt / (16.0 * 38.0);
@@ -161,12 +198,12 @@ int main()
 				else
 					bl_avg = (bl4 + bl3 + bl2 + bl1) / 4.0;
 				aablavgArray[eventIndex] = bl_avg;
-				si = eventsSorted[eventIndex].aaShortInt / 16.0 - (bl_avg * 73.0);
+				/*si = eventsSorted[eventIndex].aaShortInt / 16.0 - (bl_avg * 73.0);
 				li = eventsSorted[eventIndex].aaLongInt / 16.0 - (bl_avg * 169.0);
 				fi = eventsSorted[eventIndex].aaFullInt / 16.0 - (bl_avg * 1551.0);
 				if (si > 0 && li > 0)
 					psd = si / (li - si);
-				energy = 1.0 * fi + 0.0;
+				energy = 1.0 * fi + 0.0;*/
 
 				eventIndex++;
 			}
@@ -174,7 +211,7 @@ int main()
 			eventIndex = 0;	//reset again
 			for (eventIndex = 0; eventIndex < 511; eventIndex++)
 			{
-				outputFile_Erik << std::setw(12) << eventsSorted[eventIndex].aaEventNumber << '\t'
+				outputFileStream << std::setw(12) << eventsSorted[eventIndex].aaEventNumber << '\t'
 					<< std::setw(12) << eventsSorted[eventIndex].aaTotalEvents << '\t'
 					<< std::setw(11) << eventsSorted[eventIndex].lpfTTLSignal << '\t'
 					<< std::setw(16) << ((eventsSorted[eventIndex].dffTimeSmall * 128.0e-9) + (eventsSorted[eventIndex].dffTimeBig * 549.7558139)) << '\t'
@@ -190,8 +227,8 @@ int main()
 					<< std::endl;
 			}
 		}
-		outputFile_Erik.close();
-		mxbinfile.close();
+		outputFileStream.close();
+		inputfileStream.close();
 		/*else
 		{
 			cout << "Unable to open file: '" << input << "'\n";

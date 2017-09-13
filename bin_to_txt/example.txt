@@ -1,3 +1,0 @@
-Writing this line in. 
-Also writing the price: 33 
-and the quantity: 3
