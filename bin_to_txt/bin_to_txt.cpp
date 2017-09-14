@@ -55,6 +55,7 @@ int main()
 	int localTime_us = 0; 
 	double aablavgArray[512] = {};	//sorting variables
 	double bl1(0);	double bl2(0); double bl3(0); double bl4(0); double bl_avg(0);
+	int lineWriteCounter = 0;
 
 	fstream inputfileStream;
 	ofstream outputFileStream;
@@ -98,7 +99,7 @@ int main()
 			<< "LPF Full Int" << '\t'
 			<< "DFF Baseline Int" << '\t'
 			<< "DFF Short Int" << '\t'
-			<< "World Time (s)" << std::endl;
+			<< std::endl;
 
 		while (outputFileStream.is_open() && inputfileStream.is_open())
 		{
@@ -186,8 +187,6 @@ int main()
 					break;
 				}
 
-				//if (eventIndex > 511)	//if we are at the bottom, reset for the next parts of the struct
-				//	eventIndex = 0;
 				if (ii > 12280)	//if we are near the top, in the last event, jump out (it's garbage)
 					break;
 			}
@@ -209,27 +208,31 @@ int main()
 			eventIndex = 0;	//reset again
 			for (eventIndex = 0; eventIndex < 511; eventIndex++)
 			{
-				outputFileStream << std::setw(12) << eventsSorted[eventIndex].aaEventNumber << '\t'
-					<< eventsSorted[eventIndex].aaTotalEvents << '\t'
+				outputFileStream << std::setw(12) << eventsSorted[eventIndex].aaTotalEvents << '\t'
+					<< eventsSorted[eventIndex].aaEventNumber << '\t'
 					<< eventsSorted[eventIndex].lpfTTLSignal << '\t'
-					<< (eventsSorted[eventIndex].dffTimeSmall * 128.0e-9) + (eventsSorted[eventIndex].dffTimeBig * 549.7558139) << '\t'
-					<< eventsSorted[eventIndex].aaBaselineInt << '\t'
-					<< eventsSorted[eventIndex].aaShortInt / 16.0 - aablavgArray[eventIndex] * 73.0 << '\t'
-					<< eventsSorted[eventIndex].aaLongInt / 16.0 - aablavgArray[eventIndex] * 169.0 << '\t'
-					<< eventsSorted[eventIndex].aaFullInt / 16.0 - aablavgArray[eventIndex] * 1551.0 << '\t'
+					<< std::setprecision(12) << (eventsSorted[eventIndex].dffTimeSmall * 128.0e-9) + (eventsSorted[eventIndex].dffTimeBig * 549.7558139) << '\t'
+					<< eventsSorted[eventIndex].aaBaselineInt / 16.0 << '\t'
+					<< eventsSorted[eventIndex].aaShortInt / 16.0 << '\t'
+					<< eventsSorted[eventIndex].aaLongInt / 16.0 << '\t'
+					<< eventsSorted[eventIndex].aaFullInt / 16.0 << '\t'
 					<< eventsSorted[eventIndex].lpfBaselineInt / 16.0 << '\t'
 					<< eventsSorted[eventIndex].lpfShortInt / 16.0 << '\t'
 					<< eventsSorted[eventIndex].lpfFullInt / 16.0 << '\t'
 					<< eventsSorted[eventIndex].dffBaselineInt / 16.0 << '\t'
 					<< eventsSorted[eventIndex].dffShortInt / 16.0 << '\t'
-					<< (eventsSorted[eventIndex].dffTimeSmall * 128.0e-9) + (eventsSorted[eventIndex].dffTimeBig * 549.7558139) + localTime_us	<< std::endl;
+					<< std::endl;
 			}
+
+			//if ((++lineWriteCounter) > 100)	//use this is to convert a small portion of the binary file
+			//	break;
 		}
 		outputFileStream.close();
 		inputfileStream.close();
 
 		while (true)
 		{
+			getline(cin, input);
 			cout << "Are they any more files to convert? (y/n) \n";
 			getline(cin, input);
 			if (input == "y")
