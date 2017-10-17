@@ -68,8 +68,9 @@ int main()
 	* Use getline to get user input, check the input for no bad characters, append .bin to the end of it
 	* then place that string into the fstream function below.
 	*/
-	cout << "Before entering files to convert, place them in: \n";
-	cout << "K:\\users\\GStoddard\\Miscellany\\bin_to_txt\\bin_to_txt\n";
+	cout << "Before entering files to convert, place them in: \n\n";
+	cout << "your_working_directory\\bin_to_txt\\bin_to_txt \n\n";
+	//cout << "K:\\users\\GStoddard\\Miscellany\\bin_to_txt\\bin_to_txt\n";
 	while (true)
 	{
 		cout << "Enter a binary file (without .bin extension) to convert: \n";		// Get the input file that should be converted
