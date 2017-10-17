@@ -49,10 +49,11 @@ int main()
 	string outfile = "";
 	unsigned int data_array[BUFFER_SIZE] = {};
 	EventData eventsSorted[512] = {};
-	char beginTime[10] = {};
-	int beginTimeHour = 0;
-	int beginTimeMin = 0;
-	int localTime_us = 0; 
+	unsigned int FirstEvent = 0;
+	/*char begintime[10] = {};
+	int begintimehour = 0;
+	int begintimemin = 0;
+	int localtime_us = 0; */
 	double aablavgArray[512] = {};	//sorting variables
 	double bl1(0);	double bl2(0); double bl3(0); double bl4(0); double bl_avg(0);
 	int lineWriteCounter = 0;
@@ -74,13 +75,13 @@ int main()
 		cout << "Enter a binary file (without .bin extension) to convert: \n";		// Get the input file that should be converted
 		getline(cin, input);
 		infile = input + ".bin";
-		outfile = input + " proc.txt";
+		outfile = input + " v2.txt";
 		cout << "New file will be named: " + outfile + "\n";
 
-		cout << "Enter the time (HH:MM) that the run began: \n";
-		cin >> beginTime;// getline(cin, beginTime);
-		sscanf_s(beginTime, " %d:%d", &beginTimeHour, &beginTimeMin);
-		localTime_us = (beginTimeHour * 360 + beginTimeMin * 60) * 10 ^ 6;	//puts the entered time into microseconds
+		cout << "Enter the first event registered for this run: \n";
+		cout << "A zero for this value will write all events.\n";
+		cin >> FirstEvent;
+		//localTime_us = (beginTimeHour * 360 + beginTimeMin * 60) * 10 ^ 6;	//puts the entered time into microseconds
 
 		inputfileStream.open(infile, ios::in | ios::binary);
 		outputFileStream.open(outfile, std::ios::app);
@@ -114,9 +115,19 @@ int main()
 			{
 				if (data_array[ii] == 111111)
 				{
-					ii++;	//there is a second identifier which follows the first one
-					firstAlignedEvent = data_array[ii + 2];
-					break;
+					//sometimes there is a second 111111, sometimes there is not
+					if (data_array[ii+1] == 111111 && data_array[ii+2] > 0 && data_array[ii+7] == 8)	//if the following number is also 111111, move over it //check there is a value for total events and an 8 placeholder
+					{
+						ii++;	//there is a second identifier which follows the first one
+						firstAlignedEvent = data_array[ii + 2];
+						break;
+					}
+					else if (data_array[ii + 7] == 8 && data_array[ii + 1] > 0) //if it is not, see if there is a full event and read normally //check there is an 8 placeholder and a total events value above 0
+					{
+						firstAlignedEvent = data_array[ii + 2];
+						break;
+					}
+					//if neither case is satisfied, then leave the if and find the next identifier
 				}
 				else if (ii > BUFFER_SIZE)	//catch if we accidentally have no data
 					break;
@@ -191,27 +202,35 @@ int main()
 					break;
 			}
 
-			eventIndex = 0;	//reset this value
-			while (eventIndex < 512)	//plots the charts for each event
-			{
-				bl4 = bl3; bl3 = bl2; bl2 = bl1;
-				bl1 = eventsSorted[eventIndex].aaBaselineInt / (16.0 * 38.0);
-				if (bl4 == 0.0)
-					bl_avg = bl1;
-				else
-					bl_avg = (bl4 + bl3 + bl2 + bl1) / 4.0;
-				aablavgArray[eventIndex] = bl_avg;
+			//eventIndex = 0;	//reset this value
+			//while (eventIndex < 512)	//plots the charts for each event
+			//{
+			//	bl4 = bl3; bl3 = bl2; bl2 = bl1;
+			//	bl1 = eventsSorted[eventIndex].aaBaselineInt / (16.0 * 38.0);
+			//	if (bl4 == 0.0)
+			//		bl_avg = bl1;
+			//	else
+			//		bl_avg = (bl4 + bl3 + bl2 + bl1) / 4.0;
+			//	aablavgArray[eventIndex] = bl_avg;
 
-				eventIndex++;
-			}
+			//	eventIndex++;
+			//}
 
 			eventIndex = 0;	//reset again
-			for (eventIndex = 0; eventIndex < 511; eventIndex++)
+			for (eventIndex = 0; eventIndex < 511; eventIndex++)	//Add in a check on dffTimeBig when times are small initially
 			{
+				if (eventsSorted[eventIndex].aaTotalEvents == 0 || eventsSorted[eventIndex].aaEventNumber == 0	|| eventsSorted[eventIndex].aaBaselineInt == 0	|| 
+					eventsSorted[eventIndex].aaShortInt == 0	|| eventsSorted[eventIndex].aaLongInt == 0		|| eventsSorted[eventIndex].aaFullInt == 0		|| 
+					eventsSorted[eventIndex].lpfEventNumber == 0|| eventsSorted[eventIndex].lpfBaselineInt == 0 || eventsSorted[eventIndex].lpfFullInt == 0		|| 
+					eventsSorted[eventIndex].dffTimeSmall == 0	|| eventsSorted[eventIndex].dffEventNumber == 0	|| eventsSorted[eventIndex].dffShortInt == 0)
+					continue;
+				if (eventsSorted[eventIndex].aaEventNumber < FirstEvent)	//make sure we don't write events before the "first"
+					continue;
+				
 				outputFileStream << std::setw(12) << eventsSorted[eventIndex].aaTotalEvents << '\t'
 					<< eventsSorted[eventIndex].aaEventNumber << '\t'
 					<< eventsSorted[eventIndex].lpfTTLSignal << '\t'
-					<< std::setprecision(12) << (eventsSorted[eventIndex].dffTimeSmall * 128.0e-9) + (eventsSorted[eventIndex].dffTimeBig * 549.7558139) << '\t'
+					<< std::setprecision(16) << (eventsSorted[eventIndex].dffTimeSmall * 128.0e-9) + (eventsSorted[eventIndex].dffTimeBig * 549.7558139) << '\t'
 					<< eventsSorted[eventIndex].aaBaselineInt / 16.0 << '\t'
 					<< eventsSorted[eventIndex].aaShortInt / 16.0 << '\t'
 					<< eventsSorted[eventIndex].aaLongInt / 16.0 << '\t'
